@@ -4,8 +4,7 @@
 
 A single-file, browser-based WiFi coverage planner for **TP-Link Deco** mesh systems. Draw your home to scale, choose realistic UK wall materials, drop mesh nodes, and see a wall-aware signal heatmap — then let it suggest where to put each Deco.
 
-**Live demo:** `https://<your-username>.github.io/<your-repo>/`
-_(fill in after you deploy — see below)_
+**Live demo:** `https://tommythewanderingdev.github.io/Signal-Survey/`
 
 ---
 
@@ -22,30 +21,6 @@ _(fill in after you deploy — see below)_
 ## Privacy
 
 Everything runs **entirely in your browser**. No data is sent anywhere; there is no analytics and no backend. Plans you export are ordinary local files.
-
-## How to deploy to GitHub Pages
-
-There are two easy ways. Pick one.
-
-### Option A — Deploy from a branch (simplest)
-
-1. Create a new GitHub repository and push these files to the `main` branch.
-2. In the repo, go to **Settings → Pages**.
-3. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-4. Select branch **`main`** and folder **`/ (root)`**, then **Save**.
-5. Wait ~1 minute. Your site appears at `https://<your-username>.github.io/<your-repo>/`.
-
-Because the app is a single `index.html`, that's all it needs.
-
-### Option B — Deploy with GitHub Actions
-
-This repo already includes `.github/workflows/deploy.yml`. To use it:
-
-1. Push these files to `main`.
-2. Go to **Settings → Pages → Source** and choose **GitHub Actions**.
-3. Every push to `main` will publish automatically.
-
-> The included `.nojekyll` file tells GitHub Pages to serve the files as-is (no Jekyll processing).
 
 ## How to use
 
