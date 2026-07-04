@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<!--
+  Signal Survey — WiFi heat mapper for TP-Link Deco mesh
+  Copyright (C) 2026 <YOUR NAME>
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+  This tool was designed and written by Claude, an AI model made by Anthropic.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Signal Survey — Deco Heat Mapper</title>
+<style>
+  :root{
+    --bg:#0b1017;--panel:#0e141d;--panel-2:#131c27;--line:#22303f;--line-soft:#1a2530;
+    --ink:#e6eef6;--ink-dim:#8fa3b5;--ink-faint:#5f7284;--accent:#4cc9f0;--accent-dim:#2a7f96;
+    --warn:#f0a54c;--bad:#e05a4a;--good:#57c96b;--radius:9px;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+    overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .app{display:grid;grid-template-rows:auto 1fr;height:100dvh;}
+  header{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);
+    background:var(--panel);padding-top:max(10px,env(safe-area-inset-top));}
+  .brand{display:flex;align-items:baseline;gap:9px;min-width:0}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 0 3px rgba(76,201,240,.18),0 0 14px rgba(76,201,240,.6);flex:none;align-self:center}
+  .brand h1{font-size:14px;font-weight:650;letter-spacing:.2px;margin:0;white-space:nowrap}
+  .brand .sub{font-size:11px;color:var(--ink-faint);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ai-badge{font-size:10px;font-family:var(--mono);color:#bfe9f6;background:rgba(76,201,240,.12);border:1px solid rgba(76,201,240,.42);
+    border-radius:20px;padding:2px 8px;letter-spacing:.3px;align-self:center;white-space:nowrap;cursor:help}
+  .spacer{flex:1}
+  .hbtns{display:flex;gap:6px}
+  .hbtn{width:34px;height:34px;border-radius:8px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink-dim);display:grid;place-items:center;cursor:pointer}
+  .hbtn:hover{color:var(--ink);border-color:var(--accent-dim)}
+  .hbtn:disabled{opacity:.35;cursor:default}
+  .hbtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .band-switch{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .band-switch button{background:none;border:0;color:var(--ink-dim);font-family:var(--mono);font-size:12px;padding:7px 11px;cursor:pointer}
+  .band-switch button.on{background:var(--accent-dim);color:#eafcff}
+  .stat{font-family:var(--mono);font-size:11px;color:var(--ink-dim);text-align:right;line-height:1.25;white-space:nowrap}
+  .stat b{color:var(--ink);font-size:15px}
+  .ghost-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--ink-dim);border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer}
+  .ghost-btn:hover{color:var(--ink)}
+  .body{display:grid;grid-template-columns:60px 1fr 292px;min-height:0}
+  .rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;overflow-y:auto}
+  .tool{width:44px;height:44px;border-radius:10px;background:transparent;border:1px solid transparent;color:var(--ink-dim);display:grid;place-items:center;cursor:pointer;position:relative}
+  .tool svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .tool:hover{color:var(--ink);background:var(--panel-2)}
+  .tool.on{color:#eafcff;background:var(--accent-dim);border-color:#57b9d6}
+  .tool .tip{position:absolute;left:52px;top:50%;transform:translateY(-50%);background:#02070c;border:1px solid var(--line);color:var(--ink);font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:.12s;z-index:30}
+  .tool:hover .tip{opacity:1}
+  .rail .div{width:26px;height:1px;background:var(--line);margin:4px 0}
+  .stage{position:relative;min-width:0;background:radial-gradient(120% 120% at 50% 0%,#0d141d 0%,#080c12 100%);overflow:hidden}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .hint{position:absolute;left:14px;bottom:14px;font-family:var(--mono);font-size:11px;color:var(--ink-faint);background:rgba(6,11,17,.8);border:1px solid var(--line-soft);padding:6px 10px;border-radius:7px;pointer-events:none;max-width:60%}
+  .zoombar{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px}
+  .zoombar button{width:34px;height:34px;border-radius:8px;background:rgba(14,20,29,.9);border:1px solid var(--line);color:var(--ink-dim);font-size:17px;cursor:pointer}
+  .zoombar button:hover{color:var(--ink)}
+  .inspector{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+  .sec{margin-bottom:18px}
+  .sec > h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink-faint);margin:0 0 9px;font-weight:650}
+  .matgrid{display:grid;grid-template-columns:1fr;gap:5px}
+  .mat{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line-soft);border-radius:8px;background:var(--panel-2);cursor:pointer;font-size:12px}
+  .mat:hover{border-color:var(--accent-dim)}
+  .mat.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-dim)}
+  .mat .sw{width:16px;height:16px;border-radius:4px;flex:none}
+  .mat .nm{flex:1;line-height:1.2}
+  .mat .db{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+  .row label{font-size:12px;color:var(--ink-dim);flex:1}
+  select,input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:7px 8px;font-size:12px;font-family:var(--sans);width:100%}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .btn{display:block;width:100%;text-align:center;background:var(--accent-dim);border:1px solid #57b9d6;color:#eafcff;border-radius:8px;padding:9px;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:4px}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.sub{background:var(--panel-2);border-color:var(--line);color:var(--ink-dim);font-weight:500}
+  .btn.sub:hover{color:var(--ink)}
+  .legend{display:flex;flex-direction:column;gap:3px}
+  .legrow{display:flex;align-items:center;gap:9px;font-size:11.5px}
+  .legrow .sw{width:26px;height:12px;border-radius:3px;flex:none}
+  .legrow .lab{flex:1;color:var(--ink-dim)}
+  .legrow .rng{font-family:var(--mono);font-size:10px;color:var(--ink-faint)}
+  .note{font-size:11px;color:var(--ink-faint);line-height:1.5}
+  .selbox{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel-2);font-size:12px}
+  .selbox .t{font-weight:600;margin-bottom:6px;color:var(--accent)}
+  .modelmeta{font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-top:6px;line-height:1.5}
+  .mobtoggle{display:none}
+  @media (max-width:880px){
+    .body{grid-template-columns:52px 1fr}
+    .inspector{position:absolute;top:0;right:0;height:100%;width:min(312px,88vw);z-index:40;transform:translateX(105%);transition:transform .22s;box-shadow:-18px 0 50px rgba(0,0,0,.5)}
+    .inspector.open{transform:none}
+    .mobtoggle{display:grid}
+    .stat{display:none}
+  }
+  @media (max-width:560px){ .brand .sub{display:none} .band-switch button{padding:7px 9px} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><span class="dot"></span><h1>Signal Survey</h1><span class="ai-badge" title="This tool was designed and written by Claude, an AI model made by Anthropic, guided by a human.">Made by AI</span><span class="sub" id="brandSub">· Deco M4R</span></div>
+    <div class="spacer"></div>
+    <div class="hbtns">
+      <button class="hbtn" id="undoBtn" title="Undo (⌘Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 015 5v0a5 5 0 01-5 5H8"/></svg></button>
+      <button class="hbtn" id="redoBtn" title="Redo (⇧⌘Z)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 00-5 5v0a5 5 0 005 5h7"/></svg></button>
+    </div>
+    <div class="band-switch" id="bandSwitch"></div>
+    <div class="stat"><span id="covStat">—</span><br><span id="covSub" style="color:var(--ink-faint)">coverage</span></div>
+    <button class="ghost-btn mobtoggle" id="mobToggle">Panel</button>
+  </header>
+
+  <div class="body">
+    <div class="rail" id="rail">
+      <button class="tool on" data-tool="select"><span class="tip">Select / Move · V</span><svg viewBox="0 0 24 24"><path d="M4 3l7 17 2.5-7L20 10z"/></svg></button>
+      <button class="tool" data-tool="room"><span class="tip">Draw room · R</span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M12 10v10"/></svg></button>
+      <button class="tool" data-tool="wall"><span class="tip">Draw wall · W</span><svg viewBox="0 0 24 24"><path d="M3 18L21 6"/><circle cx="3" cy="18" r="1.6"/><circle cx="21" cy="6" r="1.6"/></svg></button>
+      <button class="tool" data-tool="opening"><span class="tip">Door / window · D</span><svg viewBox="0 0 24 24"><path d="M4 20V5a1 1 0 011-1h9v16M14 12h1M4 20h16"/></svg></button>
+      <button class="tool" data-tool="ap"><span class="tip">Place Deco · A</span><svg viewBox="0 0 24 24"><path d="M12 12h.01M8.5 8.5a5 5 0 000 7M15.5 8.5a5 5 0 010 7M5.5 5.5a9 9 0 000 13M18.5 5.5a9 9 0 010 13"/></svg></button>
+      <button class="tool" data-tool="router"><span class="tip">Router / ONT · G</span><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 17h.01M11 17h.01M12 13V8m0 0l-2.5 2.5M12 8l2.5 2.5"/></svg></button>
+      <div class="div"></div>
+      <button class="tool" data-tool="erase"><span class="tip">Erase · E</span><svg viewBox="0 0 24 24"><path d="M4 15l6-6 8 8-3 3H7zM14 5l5 5"/></svg></button>
+    </div>
+
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="hint" id="hint">Drag to draw a room. First corner snaps to the grid. Scroll / pinch to zoom.</div>
+      <div class="zoombar">
+        <button id="zin">+</button><button id="zout">−</button><button id="zfit" title="Fit to plan">⤢</button>
+      </div>
+    </div>
+
+    <aside class="inspector" id="inspector">
+      <div class="sec">
+        <h2>Hardware</h2>
+        <select id="modelSel"></select>
+        <div class="modelmeta" id="modelMeta"></div>
+      </div>
+
+      <div class="sec" id="matSec">
+        <h2>Wall material</h2>
+        <div class="matgrid" id="matGrid"></div>
+      </div>
+
+      <div class="sec" id="selSec" style="display:none">
+        <h2>Selection</h2>
+        <div class="selbox" id="selBox"></div>
+      </div>
+
+      <div class="sec">
+        <h2>Optimal placement</h2>
+        <div class="row"><label>Deco nodes in pack</label>
+          <select id="numNodes" style="width:70px"><option>2</option><option selected>3</option><option>4</option></select></div>
+        <div class="note" style="margin-bottom:8px">Node 1 pins nearest your router pin. Others maximise coverage while keeping a viable backhaul link between nodes.</div>
+        <button class="btn" id="optBtn">Suggest positions</button>
+        <button class="btn sub" id="applyBtn" style="display:none;margin-top:6px">Apply suggestion</button>
+        <button class="btn sub" id="clearSug" style="display:none;margin-top:6px">Clear suggestion</button>
+        <div class="note" id="optOut" style="margin-top:8px"></div>
+      </div>
+
+      <div class="sec"><h2>Signal quality</h2><div class="legend" id="legend"></div></div>
+
+      <div class="sec">
+        <h2>Display</h2>
+        <div class="row"><label>Heatmap</label><input type="range" id="opac" min="0" max="100" value="82" style="width:120px"></div>
+        <div class="row"><label>Show grid</label><input type="checkbox" id="showGrid" checked></div>
+        <div class="row"><label>Smooth</label><input type="checkbox" id="smooth" checked></div>
+        <div class="row"><label>Snap to grid (0.25 m)</label><input type="checkbox" id="snapChk" checked></div>
+      </div>
+
+      <div class="sec">
+        <h2>Plan</h2>
+        <select id="preset">
+          <option value="">Load preset…</option>
+          <option value="semi">Modern semi (cavity + insulation)</option>
+          <option value="terrace">Victorian solid-wall terrace</option>
+          <option value="stone">Scottish Borders stone cottage</option>
+          <option value="bungalow">Open-plan bungalow</option>
+        </select>
+        <div style="height:8px"></div>
+        <button class="btn sub" id="exportBtn">Export plan (.json)</button>
+        <button class="btn sub" id="importBtn" style="margin-top:6px">Import plan</button>
+        <button class="btn sub" id="clearAll" style="margin-top:6px;color:var(--bad);border-color:#4a2626">Clear everything</button>
+        <input type="file" id="fileIn" accept="application/json" style="display:none">
+      </div>
+
+      <div class="sec">
+        <h2>Model notes</h2>
+        <div class="note">Multi-wall path-loss model (COST-231 style). EIRP set to UK limits. 6 GHz (Wi-Fi 6E/7) is fastest but attenuates hardest — watch it die through stone and dense block. Foil-backed insulated plasterboard and Low-E glazing are strong blockers in modern UK builds.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* Signal Survey v1.1 — WiFi heat mapper for TP-Link Deco mesh.
+   Single file. No storage APIs. Export/import via JSON. */
+
+const CELL = 0.16;      // heatmap cell size (m)
+const N_EXP = 2.5;      // indoor path-loss exponent (explicit walls added on top)
+const SNAP_STEP = 0.25; // grid snap (m)
+
+// Base UK/EU EIRP ceilings per band (dBm)
+const EIRP_BASE = { "24":20, "5":23, "6":23 };
+const BAND_LABEL = { "24":"2.4 GHz", "5":"5 GHz", "6":"6 GHz" };
+const BAND_FREQ  = { "24":2.4e9, "5":5.2e9, "6":6.1e9 };
+
+// Deco models. gain = approx extra EIRP/antenna headroom on 5/6 GHz vs entry models.
+const MODELS = {
+  m4r:  {name:"Deco M4R",  cls:"AC1200",   gen:"Wi-Fi 5",          bands:["24","5"],      gain:0, backhaul:false},
+  m5:   {name:"Deco M5",   cls:"AC1300",   gen:"Wi-Fi 5",          bands:["24","5"],      gain:0, backhaul:false},
+  s4:   {name:"Deco S4/E4",cls:"AC1200",   gen:"Wi-Fi 5",          bands:["24","5"],      gain:0, backhaul:false},
+  x20:  {name:"Deco X20",  cls:"AX1800",   gen:"Wi-Fi 6",          bands:["24","5"],      gain:0, backhaul:false},
+  x50:  {name:"Deco X50",  cls:"AX3000",   gen:"Wi-Fi 6",          bands:["24","5"],      gain:1, backhaul:false},
+  x55:  {name:"Deco X55",  cls:"AX3000",   gen:"Wi-Fi 6",          bands:["24","5"],      gain:1, backhaul:false},
+  x60:  {name:"Deco X60",  cls:"AX3000",   gen:"Wi-Fi 6",          bands:["24","5"],      gain:1, backhaul:false},
+  x90:  {name:"Deco X90",  cls:"AX6600",   gen:"Wi-Fi 6 tri-band", bands:["24","5"],      gain:2, backhaul:true},
+  xe75: {name:"Deco XE75", cls:"AXE5400",  gen:"Wi-Fi 6E",         bands:["24","5","6"],  gain:1, backhaul:false},
+  xe200:{name:"Deco XE200",cls:"AXE11000", gen:"Wi-Fi 6E tri-band",bands:["24","5","6"],  gain:2, backhaul:true},
+  be65: {name:"Deco BE65", cls:"BE11000",  gen:"Wi-Fi 7",          bands:["24","5","6"],  gain:2, backhaul:false},
+  be85: {name:"Deco BE85", cls:"BE22000",  gen:"Wi-Fi 7 tri-band", bands:["24","5","6"],  gain:3, backhaul:true},
+};
+
+// Materials: attenuation dB for 2.4 / 5 / 6 GHz. UK construction.
+const MATERIALS = {
+  stud:   { name:"Stud partition (plasterboard)",    l24:3,  l5:4,  l6:6,  col:"#5b6b7a" },
+  foil:   { name:"Insulated plasterboard (foil)",    l24:8,  l5:12, l6:16, col:"#8a6d3b" },
+  block:  { name:"Blockwork (internal load-bearing)",l24:8,  l5:12, l6:16, col:"#6d7a86" },
+  cavity: { name:"External cavity wall (brick+block)",l24:12, l5:18, l6:24, col:"#9a5a3a" },
+  stone:  { name:"Solid stone (450–600 mm)",         l24:16, l5:26, l6:34, col:"#7d7368" },
+  brick9: { name:"Solid brick (Victorian)",          l24:11, l5:16, l6:22, col:"#a05236" },
+  party:  { name:"Party wall (acoustic, Part E)",    l24:15, l5:22, l6:29, col:"#4a5560" },
+  glass:  { name:"Glazing (double / Low-E)",         l24:4,  l5:8,  l6:11, col:"#3f7f8c", glass:true },
+  door:   { name:"Door (timber)",                    l24:2,  l5:3,  l6:4,  col:"#7a5a3a", opening:true },
+  window: { name:"Window opening",                   l24:3,  l5:5,  l6:7,  col:"#3f7f8c", opening:true },
+};
+const WALL_MATS = ["cavity","stone","brick9","party","block","foil","stud","glass"];
+const OPENING_MATS = ["door","window"];
+
+const STOPS = [
+  { v:-48, c:[38,150,74]  },{ v:-57, c:[86,190,84] },{ v:-65, c:[150,204,70] },
+  { v:-70, c:[240,205,66] },{ v:-76, c:[240,150,60] },{ v:-83, c:[220,86,64] },{ v:-92, c:[120,40,52] },
+];
+const QUALITY = [
+  { lab:"Excellent", note:"full speed",   c:[38,150,74],  rng:"≥ −50" },
+  { lab:"Great",     note:"HD streaming", c:[86,190,84],  rng:"−50…−60" },
+  { lab:"Good",      note:"reliable",     c:[150,204,70], rng:"−60…−67" },
+  { lab:"Fair",      note:"video / calls",c:[240,205,66], rng:"−67…−72" },
+  { lab:"Weak",      note:"browsing",     c:[240,150,60], rng:"−72…−80" },
+  { lab:"Very weak", note:"drops likely", c:[220,86,64],  rng:"−80…−90" },
+  { lab:"Dead spot", note:"no link",      c:[90,34,44],   rng:"< −90" },
+];
+
+const state = {
+  tool:"select", model:"m4r", band:"24", mat:"cavity", openMat:"door",
+  rooms:[], walls:[], openings:[], aps:[], router:null,
+  suggestions:null, numNodes:3, opacity:0.82, showGrid:true, smooth:true, snap:true,
+  sel:null, view:{ scale:60, ox:0, oy:0 }
+};
+let uid = 1; const nid = ()=> uid++;
+
+// ---- canvas ----
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const stage=document.getElementById("stage");
+let W=0,H=0,DPR=1,firstFit=true;
+const heat=document.createElement("canvas"), hctx=heat.getContext("2d");
+
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=stage.clientWidth; H=stage.clientHeight;
+  if(!W||!H) return;
+  cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(firstFit){ fitView(); firstFit=false; }
+  render();
+}
+new ResizeObserver(resize).observe(stage);
+window.addEventListener("resize",resize);
+
+const w2s=(x,y)=>({x:x*state.view.scale+state.view.ox,y:y*state.view.scale+state.view.oy});
+const s2w=(x,y)=>({x:(x-state.view.ox)/state.view.scale,y:(y-state.view.oy)/state.view.scale});
+const gsnap=v=> state.snap? Math.round(v/SNAP_STEP)*SNAP_STEP : v;
+
+function contentBounds(){
+  const xs=[],ys=[];
+  for(const r of state.rooms){xs.push(r.x,r.x+r.w);ys.push(r.y,r.y+r.h);}
+  for(const w of state.walls){xs.push(w.x1,w.x2);ys.push(w.y1,w.y2);}
+  for(const a of state.aps){xs.push(a.x);ys.push(a.y);}
+  if(state.router){xs.push(state.router.x);ys.push(state.router.y);}
+  if(!xs.length) return {x:-1,y:-1,w:14,h:10};
+  const pad=2, minx=Math.min(...xs)-pad, miny=Math.min(...ys)-pad, maxx=Math.max(...xs)+pad, maxy=Math.max(...ys)+pad;
+  return {x:minx,y:miny,w:Math.max(6,maxx-minx),h:Math.max(6,maxy-miny)};
+}
+function roomsBBox(){
+  const xs=[],ys=[]; for(const r of state.rooms){xs.push(r.x,r.x+r.w);ys.push(r.y,r.y+r.h);}
+  if(!xs.length) return null;
+  return {x:Math.min(...xs),y:Math.min(...ys),X:Math.max(...xs),Y:Math.max(...ys)};
+}
+function fitView(){
+  const b=contentBounds(), pad=30;
+  const s=Math.min((W-pad*2)/b.w,(H-pad*2)/b.h);
+  state.view.scale=Math.max(16,Math.min(150,s));
+  state.view.ox=(W-b.w*state.view.scale)/2 - b.x*state.view.scale;
+  state.view.oy=(H-b.h*state.view.scale)/2 - b.y*state.view.scale;
+}
+
+// ---- physics ----
+const log10=Math.log10;
+function fspl1m(band){ return 20*log10(4*Math.PI*BAND_FREQ[band]/3e8); }
+const FSPL1={"24":fspl1m("24"),"5":fspl1m("5"),"6":fspl1m("6")};
+function eirpOf(band){
+  const m=MODELS[state.model];
+  const g = band==="24"?0:m.gain;
+  const cap = band==="24"?20:(band==="5"?26:25);
+  return Math.min(cap, EIRP_BASE[band]+g);
+}
+function segInt(ax,ay,bx,by,cx,cy,dx,dy){
+  const r1=bx-ax,r2=by-ay,s1=dx-cx,s2=dy-cy, den=r1*s2-r2*s1;
+  if(Math.abs(den)<1e-9) return null;
+  const t=((cx-ax)*s2-(cy-ay)*s1)/den, u=((cx-ax)*r2-(cy-ay)*r1)/den;
+  if(t>=0&&t<=1&&u>=0&&u<=1) return {t,x:ax+t*r1,y:ay+t*r2};
+  return null;
+}
+function lossOf(mat,band){ const m=MATERIALS[mat]; return band==="24"?m.l24:(band==="5"?m.l5:m.l6); }
+function wallLoss(x1,y1,x2,y2,band){
+  const cr=[];
+  for(const w of state.walls){ const h=segInt(x1,y1,x2,y2,w.x1,w.y1,w.x2,w.y2); if(h) cr.push({t:h.t,x:h.x,y:h.y,loss:lossOf(w.mat,band),opening:false}); }
+  for(const w of state.openings){ const h=segInt(x1,y1,x2,y2,w.x1,w.y1,w.x2,w.y2); if(h) cr.push({t:h.t,x:h.x,y:h.y,loss:lossOf(w.mat,band),opening:true}); }
+  if(!cr.length) return 0;
+  cr.sort((a,b)=>a.t-b.t);
+  let total=0,i=0;
+  while(i<cr.length){
+    let j=i, cl=[cr[i]];
+    while(j+1<cr.length && Math.hypot(cr[j+1].x-cr[i].x,cr[j+1].y-cr[i].y)<0.14){ j++; cl.push(cr[j]); }
+    const openHere=cl.some(c=>c.opening);
+    total += openHere? Math.min(...cl.map(c=>c.loss)) : Math.max(...cl.map(c=>c.loss));
+    i=j+1;
+  }
+  return total;
+}
+function rssiFrom(wx,wy,ap,band){
+  let d=Math.hypot(wx-ap.x,wy-ap.y); if(d<0.3)d=0.3;
+  const pl=FSPL1[band]+10*N_EXP*log10(d)+wallLoss(ap.x,ap.y,wx,wy,band);
+  return eirpOf(band)-pl;
+}
+function bestRssi(wx,wy,band,aps){
+  aps=aps||state.aps; let b=-999;
+  for(const ap of aps){ const r=rssiFrom(wx,wy,ap,band); if(r>b)b=r; }
+  return b;
+}
+function rssiColor(r){
+  if(r>=STOPS[0].v) return STOPS[0].c;
+  if(r<=STOPS[STOPS.length-1].v) return [70,26,38];
+  for(let i=0;i<STOPS.length-1;i++){
+    if(r<=STOPS[i].v && r>STOPS[i+1].v){
+      const f=(r-STOPS[i+1].v)/(STOPS[i].v-STOPS[i+1].v), a=STOPS[i+1].c,b=STOPS[i].c;
+      return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];
+    }
+  }
+  return [70,26,38];
+}
+
+// ---- heatmap ----
+let heatDirty=true, heatBox=null;
+function computeHeat(){
+  heatBox=contentBounds();
+  const cols=Math.max(1,Math.ceil(heatBox.w/CELL)), rows=Math.max(1,Math.ceil(heatBox.h/CELL));
+  heat.width=cols; heat.height=rows;
+  const img=hctx.createImageData(cols,rows), data=img.data;
+  if(state.aps.length){
+    for(let j=0;j<rows;j++){ const wy=heatBox.y+(j+0.5)*CELL;
+      for(let i=0;i<cols;i++){ const wx=heatBox.x+(i+0.5)*CELL;
+        const c=rssiColor(bestRssi(wx,wy,state.band)); const k=(j*cols+i)*4;
+        data[k]=c[0];data[k+1]=c[1];data[k+2]=c[2];data[k+3]=255;
+      }
+    }
+  }
+  hctx.putImageData(img,0,0); heatDirty=false; updateCoverage();
+}
+function insideInterior(x,y){ for(const r of state.rooms){ if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h) return true; } return false; }
+function updateCoverage(){
+  const el=document.getElementById("covStat"), sub=document.getElementById("covSub");
+  if(!state.aps.length){ el.textContent="—"; sub.textContent="place a Deco"; return; }
+  const bb=roomsBBox(); const th=state.band==="24"?-72:-70;
+  let tot=0,ok=0;
+  if(bb){ for(let x=bb.x+0.2;x<bb.X;x+=0.4) for(let y=bb.y+0.2;y<bb.Y;y+=0.4){ if(!insideInterior(x,y))continue; tot++; if(bestRssi(x,y,state.band)>=th)ok++; } }
+  else { const b=contentBounds(); for(let x=b.x;x<b.x+b.w;x+=0.5) for(let y=b.y;y<b.y+b.h;y+=0.5){ tot++; if(bestRssi(x,y,state.band)>=th)ok++; } }
+  const pct=tot?Math.round(100*ok/tot):0;
+  el.innerHTML=`<b>${pct}%</b>`; sub.textContent=bb?"of floor area ≥ usable":"of area ≥ usable";
+}
+
+// ---- render ----
+const FF=()=>getComputedStyle(document.body).fontFamily;
+function drawGrid(){
+  const tl=s2w(0,0), br=s2w(W,H);
+  const x0=Math.floor(tl.x),x1=Math.ceil(br.x),y0=Math.floor(tl.y),y1=Math.ceil(br.y);
+  if((x1-x0)>500||(y1-y0)>500) return;
+  ctx.lineWidth=1;
+  for(let x=x0;x<=x1;x++){ const p=w2s(x,tl.y),q=w2s(x,br.y);
+    ctx.strokeStyle=x%5===0?"rgba(120,150,175,.26)":"rgba(90,120,145,.11)";
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke(); }
+  for(let y=y0;y<=y1;y++){ const p=w2s(tl.x,y),q=w2s(br.x,y);
+    ctx.strokeStyle=y%5===0?"rgba(120,150,175,.26)":"rgba(90,120,145,.11)";
+    ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke(); }
+}
+function render(){
+  if(!W||!H) return;
+  ctx.clearRect(0,0,W,H);
+  if(state.showGrid) drawGrid();
+  if(state.aps.length){
+    if(heatDirty) computeHeat();
+    const o=w2s(heatBox.x,heatBox.y), e=w2s(heatBox.x+heatBox.w,heatBox.y+heatBox.h);
+    ctx.save(); ctx.globalAlpha=state.opacity; ctx.imageSmoothingEnabled=state.smooth;
+    ctx.drawImage(heat,o.x,o.y,e.x-o.x,e.y-o.y); ctx.restore();
+  }
+  // rooms
+  ctx.textAlign="center";
+  for(const r of state.rooms){
+    const a=w2s(r.x,r.y),b=w2s(r.x+r.w,r.y+r.h);
+    if(state.sel&&state.sel.type==="room"&&state.sel.id===r.id){ ctx.fillStyle="rgba(76,201,240,.08)"; ctx.fillRect(a.x,a.y,b.x-a.x,b.y-a.y); }
+    ctx.fillStyle="rgba(200,220,235,.78)"; ctx.font="12px "+FF();
+    if(r.name) ctx.fillText(r.name,(a.x+b.x)/2,(a.y+b.y)/2);
+    ctx.fillStyle="rgba(150,170,190,.5)"; ctx.font="10px "+FF();
+    ctx.fillText(`${r.w.toFixed(1)}×${r.h.toFixed(1)} m`,(a.x+b.x)/2,(a.y+b.y)/2+14);
+  }
+  for(const w of state.walls) drawWall(w,MATERIALS[w.mat].col,5,false);
+  for(const w of state.openings) drawWall(w,"#dfe9f2",5,true);
+  if(state.router){ const p=w2s(state.router.x,state.router.y);
+    ctx.fillStyle="#0b1017"; ctx.strokeStyle="#e6eef6"; ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(p.x,p.y,10,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#e6eef6"; ctx.font="9px "+FF(); ctx.fillText("ONT",p.x,p.y+3); }
+  if(state.suggestions) state.suggestions.forEach((s,i)=>drawAP(s,i+1,true));
+  state.aps.forEach((ap,i)=>drawAP(ap,i+1,false));
+  if(state.tool==="select"){ const r=selectedRoom();
+    if(r){ const pos=handlePos(r); ctx.fillStyle="#4cc9f0"; ctx.strokeStyle="#0b1017"; ctx.lineWidth=1.5;
+      for(const h of HANDLES){ const p=w2s(pos[h.id][0],pos[h.id][1]); ctx.beginPath(); ctx.rect(p.x-4,p.y-4,8,8); ctx.fill(); ctx.stroke(); } }
+    const sw=selectedWall();
+    if(sw){ ctx.fillStyle="#4cc9f0"; ctx.strokeStyle="#0b1017"; ctx.lineWidth=1.5;
+      for(const pt of [[sw.x1,sw.y1],[sw.x2,sw.y2]]){ const p=w2s(pt[0],pt[1]); ctx.beginPath(); ctx.arc(p.x,p.y,5,0,7); ctx.fill(); ctx.stroke(); } } }
+  if(draft) drawDraft();
+}
+function drawWall(w,col,width,opening){
+  const a=w2s(w.x1,w.y1),b=w2s(w.x2,w.y2);
+  const selw=state.sel&&(state.sel.type==="wall"||state.sel.type==="opening")&&state.sel.id===w.id;
+  ctx.lineCap="round";
+  if(opening){
+    ctx.strokeStyle="#0a0f15"; ctx.lineWidth=width+3; ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.strokeStyle=selw?"#4cc9f0":col; ctx.lineWidth=1.6; ctx.setLineDash([2,3]); ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    ctx.strokeStyle=selw?"#4cc9f0":col; ctx.lineWidth=selw?width+2:width; ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,.14)"; ctx.lineWidth=1; ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+}
+function drawAP(ap,num,ghost){
+  const p=w2s(ap.x,ap.y);
+  const sel=!ghost&&state.sel&&state.sel.type==="ap"&&state.sel.id===ap.id;
+  const g=ctx.createRadialGradient(p.x,p.y,4,p.x,p.y,46);
+  g.addColorStop(0,ghost?"rgba(76,201,240,.14)":"rgba(76,201,240,.22)"); g.addColorStop(1,"rgba(76,201,240,0)");
+  ctx.fillStyle=g; ctx.beginPath();ctx.arc(p.x,p.y,46,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(p.x,p.y,13,0,7); ctx.fillStyle=ghost?"rgba(76,201,240,.15)":"#0b1017"; ctx.fill();
+  ctx.lineWidth=sel?3:2.2; ctx.strokeStyle=ghost?"#4cc9f0":(sel?"#eafcff":"#4cc9f0"); ctx.setLineDash(ghost?[4,3]:[]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=ghost?"#4cc9f0":"#eafcff"; ctx.font="bold 11px "+FF(); ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(String(num),p.x,p.y+.5); ctx.textBaseline="alphabetic";
+}
+
+// ---- drafting + snap marker ----
+let draft=null;
+function drawSnapMark(wx,wy){
+  const p=w2s(wx,wy); ctx.strokeStyle="#4cc9f0"; ctx.lineWidth=1.4;
+  ctx.beginPath();ctx.moveTo(p.x-7,p.y);ctx.lineTo(p.x+7,p.y);ctx.moveTo(p.x,p.y-7);ctx.lineTo(p.x,p.y+7);ctx.stroke();
+  ctx.beginPath();ctx.arc(p.x,p.y,3,0,7);ctx.fillStyle="#4cc9f0";ctx.fill();
+}
+function drawDraft(){
+  if(draft.type==="room"){
+    const a=w2s(draft.x,draft.y),b=w2s(draft.x2,draft.y2);
+    ctx.strokeStyle="#4cc9f0";ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+    ctx.strokeRect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y)); ctx.setLineDash([]);
+    ctx.fillStyle="#4cc9f0";ctx.font="11px "+FF();ctx.textAlign="center";
+    ctx.fillText(`${Math.abs(draft.x2-draft.x).toFixed(2)} × ${Math.abs(draft.y2-draft.y).toFixed(2)} m`,(a.x+b.x)/2,(a.y+b.y)/2);
+    drawSnapMark(draft.x,draft.y); drawSnapMark(draft.x2,draft.y2);
+  } else if(draft.type==="wall"||draft.type==="opening"){
+    const a=w2s(draft.x,draft.y),b=w2s(draft.x2,draft.y2);
+    ctx.strokeStyle="#4cc9f0";ctx.lineWidth=4;ctx.lineCap="round";ctx.setLineDash([6,5]);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#4cc9f0";ctx.font="11px "+FF();ctx.textAlign="center";
+    ctx.fillText(`${Math.hypot(draft.x2-draft.x,draft.y2-draft.y).toFixed(2)} m`,(a.x+b.x)/2,(a.y+b.y)/2-8);
+    drawSnapMark(draft.x,draft.y); drawSnapMark(draft.x2,draft.y2);
+  }
+}
+
+// ---- snapping to rooms ----
+function edgeCandidates(excludeId){
+  const xs=[],ys=[];
+  for(const r of state.rooms){ if(r.id===excludeId)continue; xs.push(r.x,r.x+r.w); ys.push(r.y,r.y+r.h); }
+  return {xs,ys};
+}
+function snapPoint(wx,wy,excludeId){
+  let x=gsnap(wx), y=gsnap(wy);
+  const tol=12/state.view.scale;
+  const {xs,ys}=edgeCandidates(excludeId);
+  for(const cx of xs){ if(Math.abs(wx-cx)<tol){ x=cx; break; } }
+  for(const cy of ys){ if(Math.abs(wy-cy)<tol){ y=cy; break; } }
+  return {x,y};
+}
+function snapRoomMove(nx,ny,w,h,id){
+  const tol=12/state.view.scale;
+  const {xs,ys}=edgeCandidates(id);
+  let bx=null,bdx=tol; for(const cx of xs){ for(const e of [nx,nx+w]){ const d=Math.abs(e-cx); if(d<bdx){bdx=d; bx=cx-(e-nx);} } }
+  let by=null,bdy=tol; for(const cy of ys){ for(const e of [ny,ny+h]){ const d=Math.abs(e-cy); if(d<bdy){bdy=d; by=cy-(e-ny);} } }
+  return {x: bx!==null?bx:nx, y: by!==null?by:ny};
+}
+
+// ---- history (undo/redo) ----
+let undoStack=[], redoStack=[];
+function snapshot(){ return JSON.stringify({rooms:state.rooms,walls:state.walls,openings:state.openings,aps:state.aps,router:state.router,uid}); }
+function restore(s){ const d=JSON.parse(s); state.rooms=d.rooms;state.walls=d.walls;state.openings=d.openings;state.aps=d.aps;state.router=d.router;uid=d.uid; }
+function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length>80)undoStack.shift(); redoStack=[]; updateUndoBtns(); }
+function undo(){ if(!undoStack.length)return; redoStack.push(snapshot()); restore(undoStack.pop()); state.suggestions=null; select(null); heatDirty=true; render(); updateUndoBtns(); }
+function redo(){ if(!redoStack.length)return; undoStack.push(snapshot()); restore(redoStack.pop()); state.suggestions=null; select(null); heatDirty=true; render(); updateUndoBtns(); }
+function updateUndoBtns(){ document.getElementById("undoBtn").disabled=!undoStack.length; document.getElementById("redoBtn").disabled=!redoStack.length; }
+
+// ---- clipboard ----
+let clipboard=null;
+function copySel(){
+  if(!state.sel){ return; } const {type,id}=state.sel;
+  if(type==="room"){ const r=state.rooms.find(x=>x.id===id); if(!r)return;
+    clipboard={type:"room",room:JSON.parse(JSON.stringify(r)),walls:JSON.parse(JSON.stringify(state.walls.filter(w=>w.roomId===id)))}; }
+  else if(type==="ap"){ const a=state.aps.find(x=>x.id===id); if(!a)return; clipboard={type:"ap",obj:JSON.parse(JSON.stringify(a))}; }
+  else if(type==="wall"){ const w=state.walls.find(x=>x.id===id); if(!w)return; clipboard={type:"wall",obj:JSON.parse(JSON.stringify(w))}; }
+  else if(type==="opening"){ const w=state.openings.find(x=>x.id===id); if(!w)return; clipboard={type:"opening",obj:JSON.parse(JSON.stringify(w))}; }
+  setHint("Copied. Paste with ⌘/Ctrl+V.");
+}
+function pasteClip(){
+  if(!clipboard)return; pushUndo(); const off=0.5;
+  if(clipboard.type==="room"){ const rid=nid(),r=clipboard.room;
+    state.rooms.push({id:rid,x:r.x+off,y:r.y+off,w:r.w,h:r.h,name:r.name+" copy"});
+    for(const w of clipboard.walls) state.walls.push({id:nid(),x1:w.x1+off,y1:w.y1+off,x2:w.x2+off,y2:w.y2+off,mat:w.mat,roomId:rid});
+    select("room",rid);
+  } else if(clipboard.type==="ap"){ const a=clipboard.obj,na={id:nid(),x:a.x+off,y:a.y+off,name:a.name}; state.aps.push(na); select("ap",na.id); }
+  else { const w=clipboard.obj,nw={id:nid(),x1:w.x1+off,y1:w.y1+off,x2:w.x2+off,y2:w.y2+off,mat:w.mat};
+    if(clipboard.type==="wall") state.walls.push(nw); else state.openings.push(nw); select(clipboard.type,nw.id); }
+  heatDirty=true; render();
+}
+
+// ---- hit testing ----
+function hitAP(wx,wy){ const r=14/state.view.scale; for(let i=state.aps.length-1;i>=0;i--){const a=state.aps[i]; if(Math.hypot(a.x-wx,a.y-wy)<r)return a;} return null; }
+function hitRouter(wx,wy){ if(!state.router)return null; return Math.hypot(state.router.x-wx,state.router.y-wy)<14/state.view.scale?state.router:null; }
+function distToSeg(px,py,x1,y1,x2,y2){ const dx=x2-x1,dy=y2-y1,l2=dx*dx+dy*dy; let t=l2?((px-x1)*dx+(py-y1)*dy)/l2:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(px-(x1+t*dx),py-(y1+t*dy)); }
+function hitWall(wx,wy){ const tol=8/state.view.scale;
+  for(const w of state.openings){ if(distToSeg(wx,wy,w.x1,w.y1,w.x2,w.y2)<tol)return {type:"opening",obj:w}; }
+  for(const w of state.walls){ if(distToSeg(wx,wy,w.x1,w.y1,w.x2,w.y2)<tol)return {type:"wall",obj:w}; }
+  return null; }
+function hitRoom(wx,wy){ for(let i=state.rooms.length-1;i>=0;i--){const r=state.rooms[i]; if(wx>=r.x&&wx<=r.x+r.w&&wy>=r.y&&wy<=r.y+r.h)return r;} return null; }
+function nearestWallSnap(wx,wy){ let best=null,bd=0.6;
+  for(const w of state.walls){ const dx=w.x2-w.x1,dy=w.y2-w.y1,l2=dx*dx+dy*dy; let t=l2?((wx-w.x1)*dx+(wy-w.y1)*dy)/l2:0; t=Math.max(0,Math.min(1,t));
+    const cx=w.x1+t*dx,cy=w.y1+t*dy,d=Math.hypot(wx-cx,wy-cy);
+    if(d<bd){ bd=d; const len=Math.hypot(dx,dy)||1; best={cx,cy,ux:dx/len,uy:dy/len}; } }
+  return best; }
+
+// ---- room resize handles ----
+const HANDLES=[{id:"nw",l:1,t:1},{id:"n",t:1},{id:"ne",r:1,t:1},{id:"e",r:1},{id:"se",r:1,b:1},{id:"s",b:1},{id:"sw",l:1,b:1},{id:"w",l:1}];
+const CURSOR={nw:"nwse-resize",se:"nwse-resize",ne:"nesw-resize",sw:"nesw-resize",n:"ns-resize",s:"ns-resize",e:"ew-resize",w:"ew-resize"};
+function handlePos(r){ return {nw:[r.x,r.y],n:[r.x+r.w/2,r.y],ne:[r.x+r.w,r.y],e:[r.x+r.w,r.y+r.h/2],se:[r.x+r.w,r.y+r.h],s:[r.x+r.w/2,r.y+r.h],sw:[r.x,r.y+r.h],w:[r.x,r.y+r.h/2]}; }
+function hitHandle(r,wx,wy){ const tol=11/state.view.scale, pos=handlePos(r); for(const h of HANDLES){ const [hx,hy]=pos[h.id]; if(Math.hypot(wx-hx,wy-hy)<tol) return h; } return null; }
+function selectedRoom(){ return state.sel&&state.sel.type==="room"? state.rooms.find(x=>x.id===state.sel.id) : null; }
+function selectedWall(){ if(!state.sel)return null; if(state.sel.type==="wall")return state.walls.find(x=>x.id===state.sel.id); if(state.sel.type==="opening")return state.openings.find(x=>x.id===state.sel.id); return null; }
+function hitWallEnd(w,wx,wy){ const tol=11/state.view.scale; if(Math.hypot(wx-w.x1,wy-w.y1)<tol)return"a"; if(Math.hypot(wx-w.x2,wy-w.y2)<tol)return"b"; return null; }
+function updateWallFields(w){ const set=(i,v)=>{const e=document.getElementById(i); if(e&&document.activeElement!==e)e.value=v;};
+  set("wLen",wallLen(w).toFixed(2)); set("wAng",wallAng(w).toFixed(1)); set("wX1",w.x1.toFixed(2)); set("wY1",w.y1.toFixed(2)); set("wX2",w.x2.toFixed(2)); set("wY2",w.y2.toFixed(2)); }
+function updateRoomWalls(r){
+  const rw=state.walls.filter(w=>w.roomId===r.id);
+  const edges=[[r.x,r.y,r.x+r.w,r.y],[r.x+r.w,r.y,r.x+r.w,r.y+r.h],[r.x+r.w,r.y+r.h,r.x,r.y+r.h],[r.x,r.y+r.h,r.x,r.y]];
+  if(rw.length===4){ rw.forEach((w,i)=>{ w.x1=edges[i][0];w.y1=edges[i][1];w.x2=edges[i][2];w.y2=edges[i][3]; }); }
+  else { const mat=rw.length?rw[0].mat:state.mat; state.walls=state.walls.filter(w=>w.roomId!==r.id);
+    for(const e of edges) state.walls.push({id:nid(),x1:e[0],y1:e[1],x2:e[2],y2:e[3],mat,roomId:r.id}); }
+}
+function setRoomSize(r,newW,newH){ if(isFinite(newW)&&newW>=0.3) r.w=newW; if(isFinite(newH)&&newH>=0.3) r.h=newH; updateRoomWalls(r); }
+function setRoomPos(r,nx,ny){ if(isFinite(nx)) r.x=nx; if(isFinite(ny)) r.y=ny; updateRoomWalls(r); }
+function wallLen(w){ return Math.hypot(w.x2-w.x1,w.y2-w.y1); }
+function wallAng(w){ let a=Math.atan2(w.y2-w.y1,w.x2-w.x1)*180/Math.PI; return isFinite(a)?a:0; }
+function setWallLen(w,L){ if(!isFinite(L)||L<0.05)return; let a=Math.atan2(w.y2-w.y1,w.x2-w.x1); if(!isFinite(a))a=0; w.x2=w.x1+L*Math.cos(a); w.y2=w.y1+L*Math.sin(a); }
+function setWallAng(w,deg){ if(!isFinite(deg))return; const L=wallLen(w)||1, a=deg*Math.PI/180; w.x2=w.x1+L*Math.cos(a); w.y2=w.y1+L*Math.sin(a); }
+
+// ---- interaction ----
+const pointers=new Map();
+let dragMode=null,dragObj=null,dragStart=null,pinchStart=null,moveUndo=null,moved=false,dragHandle=null;
+function getWP(ev){ const r=cv.getBoundingClientRect(); return s2w(ev.clientX-r.left,ev.clientY-r.top); }
+function hoverCursor(ev){
+  if(state.tool!=="select"){ cv.style.cursor = state.tool==="erase"?"pointer":"crosshair"; return; }
+  const wp=getWP(ev), r=selectedRoom();
+  if(r){ const h=hitHandle(r,wp.x,wp.y); if(h){ cv.style.cursor=CURSOR[h.id]; return; } }
+  const sw=selectedWall();
+  if(sw && hitWallEnd(sw,wp.x,wp.y)){ cv.style.cursor="grab"; return; }
+  if(hitAP(wp.x,wp.y)||hitRouter(wp.x,wp.y)){ cv.style.cursor="grab"; return; }
+  if(hitRoom(wp.x,wp.y)){ cv.style.cursor="move"; return; }
+  cv.style.cursor="default";
+}
+function updateRoomFields(r){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e&&document.activeElement!==e)e.value=v;};
+  set("roomW",r.w.toFixed(2)); set("roomH",r.h.toFixed(2)); set("roomX",r.x.toFixed(2)); set("roomY",r.y.toFixed(2));
+  const a=document.getElementById("roomArea"); if(a) a.textContent=(r.w*r.h).toFixed(1)+" m²";
+}
+
+cv.addEventListener("pointerdown",ev=>{
+  cv.setPointerCapture(ev.pointerId); pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(pointers.size===2){ startPinch(); draft=null; dragMode="pinch"; return; }
+  const wp=getWP(ev), t=state.tool;
+  if(t==="select"){
+    const selRm=selectedRoom();
+    if(selRm){ const h=hitHandle(selRm,wp.x,wp.y);
+      if(h){ dragMode="resize"; dragObj=selRm; dragHandle=h; dragStart={x:selRm.x,y:selRm.y,w:selRm.w,h:selRm.h}; moveUndo=snapshot(); moved=false; return; } }
+    const selW=selectedWall();
+    if(selW){ const e=hitWallEnd(selW,wp.x,wp.y);
+      if(e){ dragMode="wallend"; dragObj=selW; dragHandle=e; moveUndo=snapshot(); moved=false; return; } }
+    const ap=hitAP(wp.x,wp.y);
+    if(ap){ dragMode="ap"; dragObj=ap; select("ap",ap.id); dragStart={mx:wp.x,my:wp.y,ox:ap.x,oy:ap.y}; moveUndo=snapshot(); moved=false; return; }
+    const rt=hitRouter(wp.x,wp.y);
+    if(rt){ dragMode="router"; dragObj=rt; dragStart={mx:wp.x,my:wp.y,ox:rt.x,oy:rt.y}; moveUndo=snapshot(); moved=false; return; }
+    const wl=hitWall(wp.x,wp.y);
+    if(wl){ select(wl.type,wl.obj.id); dragMode="pan"; dragStart={x:ev.clientX,y:ev.clientY,ox:state.view.ox,oy:state.view.oy}; return; }
+    const rm=hitRoom(wp.x,wp.y);
+    if(rm){ dragMode="room"; dragObj=rm; select("room",rm.id); dragStart={mx:wp.x,my:wp.y,ox:rm.x,oy:rm.y}; moveUndo=snapshot(); moved=false; return; }
+    select(null); dragMode="pan"; dragStart={x:ev.clientX,y:ev.clientY,ox:state.view.ox,oy:state.view.oy}; return;
+  }
+  if(t==="ap"){ pushUndo(); const s=snapPoint(wp.x,wp.y); const ap={id:nid(),x:s.x,y:s.y,name:"Deco"}; state.aps.push(ap); select("ap",ap.id); heatDirty=true; render(); return; }
+  if(t==="router"){ pushUndo(); const s=snapPoint(wp.x,wp.y); state.router={x:s.x,y:s.y}; render(); return; }
+  if(t==="erase"){ eraseAt(wp.x,wp.y); return; }
+  if(t==="room"){ const s=snapPoint(wp.x,wp.y); draft={type:"room",x:s.x,y:s.y,x2:s.x,y2:s.y}; render(); return; }
+  if(t==="wall"){ const s=snapPoint(wp.x,wp.y); draft={type:"wall",x:s.x,y:s.y,x2:s.x,y2:s.y}; render(); return; }
+  if(t==="opening"){ const s=nearestWallSnap(wp.x,wp.y);
+    if(s){ pushUndo(); const half=0.4; state.openings.push({id:nid(),mat:state.openMat,x1:s.cx-s.ux*half,y1:s.cy-s.uy*half,x2:s.cx+s.ux*half,y2:s.cy+s.uy*half});
+      select("opening",state.openings[state.openings.length-1].id); heatDirty=true; render(); }
+    else setHint("Draw a wall first, then tap it to add a door/window."); return; }
+});
+cv.addEventListener("pointermove",ev=>{
+  if(pointers.has(ev.pointerId)) pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(dragMode==="pinch"){ doPinch(); return; }
+  if(!dragMode && draft===null){ hoverCursor(ev); return; }
+  const wp=getWP(ev);
+  if(draft){
+    if(draft.type==="room"){ const s=snapPoint(wp.x,wp.y); draft.x2=s.x; draft.y2=s.y; }
+    else { const s=snapPoint(wp.x,wp.y); draft.x2=s.x; draft.y2=s.y; }
+    render(); return;
+  }
+  if(dragMode==="resize"){ moved=true;
+    const r=dragObj,o=dragStart,h=dragHandle, sp=snapPoint(wp.x,wp.y,r.id);
+    let left=o.x,right=o.x+o.w,top=o.y,bottom=o.y+o.h;
+    if(h.l) left=Math.min(sp.x,right-0.3);
+    if(h.r) right=Math.max(sp.x,left+0.3);
+    if(h.t) top=Math.min(sp.y,bottom-0.3);
+    if(h.b) bottom=Math.max(sp.y,top+0.3);
+    r.x=left; r.y=top; r.w=right-left; r.h=bottom-top; updateRoomWalls(r);
+    heatDirty=true; updateRoomFields(r); render(); return;
+  }
+  if(dragMode==="wallend"){ moved=true; const sp=snapPoint(wp.x,wp.y);
+    if(dragHandle==="a"){ dragObj.x1=sp.x; dragObj.y1=sp.y; } else { dragObj.x2=sp.x; dragObj.y2=sp.y; }
+    heatDirty=true; updateWallFields(dragObj); render(); return;
+  }
+  if(dragMode==="ap"||dragMode==="router"){ moved=true;
+    const nx=gsnap(dragStart.ox+(wp.x-dragStart.mx)), ny=gsnap(dragStart.oy+(wp.y-dragStart.my));
+    dragObj.x=nx; dragObj.y=ny; heatDirty=true; render(); return; }
+  if(dragMode==="room"){ moved=true;
+    let nx=gsnap(dragStart.ox+(wp.x-dragStart.mx)), ny=gsnap(dragStart.oy+(wp.y-dragStart.my));
+    const sn=snapRoomMove(nx,ny,dragObj.w,dragObj.h,dragObj.id); const dxr=sn.x-dragObj.x, dyr=sn.y-dragObj.y;
+    for(const w of state.walls) if(w.roomId===dragObj.id){ w.x1+=dxr;w.y1+=dyr;w.x2+=dxr;w.y2+=dyr; }
+    dragObj.x=sn.x; dragObj.y=sn.y; heatDirty=true; render(); return; }
+  if(dragMode==="pan"){ state.view.ox=dragStart.ox+(ev.clientX-dragStart.x); state.view.oy=dragStart.oy+(ev.clientY-dragStart.y); render(); return; }
+});
+function endPointer(ev){
+  pointers.delete(ev.pointerId); if(pointers.size<2) pinchStart=null;
+  if(dragMode==="pinch"&&pointers.size<2){ dragMode=null; return; }
+  if(draft){ if(draft.type==="room") commitRoom(draft); else if(draft.type==="wall") commitWall(draft); draft=null; }
+  if((dragMode==="ap"||dragMode==="room"||dragMode==="router"||dragMode==="resize"||dragMode==="wallend")&&moved&&moveUndo){ undoStack.push(moveUndo); redoStack=[]; updateUndoBtns(); }
+  dragMode=null; dragObj=null; dragStart=null; moveUndo=null; moved=false; dragHandle=null;
+}
+cv.addEventListener("pointerup",endPointer);
+cv.addEventListener("pointercancel",endPointer);
+
+function startPinch(){ const p=[...pointers.values()];
+  pinchStart={d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y),mx:(p[0].x+p[1].x)/2,my:(p[0].y+p[1].y)/2,scale:state.view.scale,ox:state.view.ox,oy:state.view.oy}; }
+function doPinch(){ if(!pinchStart)return; const p=[...pointers.values()]; if(p.length<2)return;
+  const d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y), f=d/pinchStart.d, ns=Math.max(12,Math.min(300,pinchStart.scale*f));
+  const r=cv.getBoundingClientRect(), cx=pinchStart.mx-r.left, cy=pinchStart.my-r.top;
+  const wx=(cx-pinchStart.ox)/pinchStart.scale, wy=(cy-pinchStart.oy)/pinchStart.scale;
+  state.view.scale=ns; state.view.ox=cx-wx*ns; state.view.oy=cy-wy*ns; render(); }
+stage.addEventListener("wheel",ev=>{ ev.preventDefault();
+  const r=cv.getBoundingClientRect(), cx=ev.clientX-r.left, cy=ev.clientY-r.top, wp=s2w(cx,cy), f=ev.deltaY<0?1.12:1/1.12;
+  state.view.scale=Math.max(12,Math.min(300,state.view.scale*f)); state.view.ox=cx-wp.x*state.view.scale; state.view.oy=cy-wp.y*state.view.scale; render();
+},{passive:false});
+
+function commitRoom(d){
+  const x=Math.min(d.x,d.x2),y=Math.min(d.y,d.y2),w=Math.abs(d.x2-d.x),h=Math.abs(d.y2-d.y);
+  if(w<0.4||h<0.4){ setHint("Room too small — drag a larger area."); return; }
+  pushUndo(); const rid=nid(); state.rooms.push({id:rid,x,y,w,h,name:"Room "+(state.rooms.length+1)});
+  const m=state.mat, push=(x1,y1,x2,y2)=>state.walls.push({id:nid(),x1,y1,x2,y2,mat:m,roomId:rid});
+  push(x,y,x+w,y);push(x+w,y,x+w,y+h);push(x+w,y+h,x,y+h);push(x,y+h,x,y);
+  select("room",rid); heatDirty=true; render();
+}
+function commitWall(d){ if(Math.hypot(d.x2-d.x,d.y2-d.y)<0.3)return; pushUndo();
+  const id=nid(); state.walls.push({id,x1:d.x,y1:d.y,x2:d.x2,y2:d.y2,mat:state.mat}); select("wall",id); heatDirty=true; render(); }
+function eraseAt(wx,wy){
+  const ap=hitAP(wx,wy); if(ap){ pushUndo(); state.aps=state.aps.filter(a=>a!==ap); fin(); return; }
+  const rt=hitRouter(wx,wy); if(rt){ pushUndo(); state.router=null; fin(); return; }
+  const wl=hitWall(wx,wy); if(wl){ pushUndo(); if(wl.type==="wall")state.walls=state.walls.filter(w=>w!==wl.obj); else state.openings=state.openings.filter(w=>w!==wl.obj); fin(); return; }
+  const rm=hitRoom(wx,wy); if(rm){ pushUndo(); state.rooms=state.rooms.filter(r=>r!==rm); state.walls=state.walls.filter(w=>w.roomId!==rm.id); fin(); return; }
+  function fin(){ select(null); heatDirty=true; render(); }
+}
+
+// ---- selection panel ----
+function select(type,id){ state.sel=type?{type,id}:null; renderSel(); render(); }
+function renderSel(){
+  const sec=document.getElementById("selSec"), box=document.getElementById("selBox");
+  if(!state.sel){ sec.style.display="none"; return; } sec.style.display="block";
+  const {type,id}=state.sel;
+  if(type==="ap"){ const ap=state.aps.find(a=>a.id===id); if(!ap){sec.style.display="none";return;}
+    box.innerHTML=`<div class="t">Deco node</div>
+      <div class="row"><label>X (m)</label><input type="text" id="apX" value="${ap.x.toFixed(2)}" inputmode="decimal" style="width:78px"></div>
+      <div class="row"><label>Y (m)</label><input type="text" id="apY" value="${ap.y.toFixed(2)}" inputmode="decimal" style="width:78px"></div>
+      <button class="btn sub" id="dupSel">Duplicate</button><button class="btn sub" id="delSel" style="margin-top:6px">Remove node</button>`;
+    const mv=()=>{ const nx=parseFloat(document.getElementById("apX").value), ny=parseFloat(document.getElementById("apY").value);
+      pushUndo(); if(isFinite(nx))ap.x=nx; if(isFinite(ny))ap.y=ny; heatDirty=true; render(); };
+    document.getElementById("apX").onchange=mv; document.getElementById("apY").onchange=mv;
+  } else if(type==="room"){ const r=state.rooms.find(x=>x.id===id); if(!r){sec.style.display="none";return;}
+    box.innerHTML=`<div class="t">${r.name}</div><input type="text" id="roomName" value="${r.name.replace(/"/g,'&quot;')}" style="margin-bottom:8px">
+      <div class="row"><label>Width (m)</label><input type="text" id="roomW" value="${r.w.toFixed(2)}" inputmode="decimal" style="width:78px"></div>
+      <div class="row"><label>Height (m)</label><input type="text" id="roomH" value="${r.h.toFixed(2)}" inputmode="decimal" style="width:78px"></div>
+      <div class="row"><label>Position X, Y</label><input type="text" id="roomX" value="${r.x.toFixed(2)}" inputmode="decimal" style="width:64px"><input type="text" id="roomY" value="${r.y.toFixed(2)}" inputmode="decimal" style="width:64px"></div>
+      <div class="note" style="margin-bottom:8px">Area <span id="roomArea">${(r.w*r.h).toFixed(1)} m²</span> · or drag the handles on the plan</div>
+      <button class="btn sub" id="dupSel">Duplicate</button><button class="btn sub" id="delSel" style="margin-top:6px">Delete room</button>`;
+    const inp=document.getElementById("roomName"); inp.oninput=()=>{ r.name=inp.value; render(); };
+    const commitSize=()=>{ const nw=parseFloat(document.getElementById("roomW").value), nh=parseFloat(document.getElementById("roomH").value);
+      if((isFinite(nw)&&Math.abs(nw-r.w)>1e-4)||(isFinite(nh)&&Math.abs(nh-r.h)>1e-4)){ pushUndo(); setRoomSize(r,nw,nh); heatDirty=true; updateRoomFields(r); render(); } };
+    const commitPos=()=>{ const nx=parseFloat(document.getElementById("roomX").value), ny=parseFloat(document.getElementById("roomY").value);
+      if((isFinite(nx)&&Math.abs(nx-r.x)>1e-4)||(isFinite(ny)&&Math.abs(ny-r.y)>1e-4)){ pushUndo(); setRoomPos(r,nx,ny); heatDirty=true; updateRoomFields(r); render(); } };
+    document.getElementById("roomW").onchange=commitSize; document.getElementById("roomH").onchange=commitSize;
+    document.getElementById("roomX").onchange=commitPos; document.getElementById("roomY").onchange=commitPos;
+  } else { const arr=type==="wall"?state.walls:state.openings, w=arr.find(x=>x.id===id); if(!w){sec.style.display="none";return;}
+    const opts=(type==="wall"?WALL_MATS:OPENING_MATS).map(k=>`<option value="${k}" ${k===w.mat?"selected":""}>${MATERIALS[k].name}</option>`).join("");
+    const m=MATERIALS[w.mat];
+    box.innerHTML=`<div class="t">${type==="wall"?"Wall segment":"Opening"}</div><select id="matSel" style="margin-bottom:8px">${opts}</select>
+      <div class="row"><label>Length (m)</label><input type="text" id="wLen" value="${wallLen(w).toFixed(2)}" inputmode="decimal" style="width:78px"></div>
+      <div class="row"><label>Angle (°)</label><input type="text" id="wAng" value="${wallAng(w).toFixed(1)}" inputmode="decimal" style="width:78px"></div>
+      <div class="row"><label>Start X, Y</label><input type="text" id="wX1" value="${w.x1.toFixed(2)}" inputmode="decimal" style="width:64px"><input type="text" id="wY1" value="${w.y1.toFixed(2)}" inputmode="decimal" style="width:64px"></div>
+      <div class="row"><label>End X, Y</label><input type="text" id="wX2" value="${w.x2.toFixed(2)}" inputmode="decimal" style="width:64px"><input type="text" id="wY2" value="${w.y2.toFixed(2)}" inputmode="decimal" style="width:64px"></div>
+      <div class="note" style="margin-bottom:8px">Length anchors the start point. Loss: ${m.l24}/${m.l5}/${m.l6} dB @ 2.4/5/6</div>
+      <button class="btn sub" id="dupSel">Duplicate</button><button class="btn sub" id="delSel" style="margin-top:6px">Delete</button>`;
+    const refresh=()=>{ const set=(i,v)=>{const e=document.getElementById(i); if(e&&document.activeElement!==e)e.value=v;};
+      set("wLen",wallLen(w).toFixed(2)); set("wAng",wallAng(w).toFixed(1)); set("wX1",w.x1.toFixed(2)); set("wY1",w.y1.toFixed(2)); set("wX2",w.x2.toFixed(2)); set("wY2",w.y2.toFixed(2)); };
+    const after=()=>{ heatDirty=true; refresh(); render(); };
+    document.getElementById("wLen").onchange=()=>{ pushUndo(); setWallLen(w,parseFloat(document.getElementById("wLen").value)); after(); };
+    document.getElementById("wAng").onchange=()=>{ pushUndo(); setWallAng(w,parseFloat(document.getElementById("wAng").value)); after(); };
+    const pts=()=>{ const x1=parseFloat(document.getElementById("wX1").value),y1=parseFloat(document.getElementById("wY1").value),x2=parseFloat(document.getElementById("wX2").value),y2=parseFloat(document.getElementById("wY2").value);
+      pushUndo(); if(isFinite(x1))w.x1=x1; if(isFinite(y1))w.y1=y1; if(isFinite(x2))w.x2=x2; if(isFinite(y2))w.y2=y2; after(); };
+    ["wX1","wY1","wX2","wY2"].forEach(i=>document.getElementById(i).onchange=pts);
+    document.getElementById("matSel").onchange=e=>{ pushUndo(); w.mat=e.target.value; heatDirty=true; renderSel(); render(); };
+  }
+  const dup=document.getElementById("dupSel"); if(dup) dup.onclick=()=>{ copySel(); pasteClip(); };
+  const del=document.getElementById("delSel"); if(del) del.onclick=()=>{ pushUndo();
+    if(type==="ap") state.aps=state.aps.filter(a=>a.id!==id);
+    else if(type==="room"){ state.rooms=state.rooms.filter(r=>r.id!==id); state.walls=state.walls.filter(w=>w.roomId!==id); }
+    else if(type==="wall") state.walls=state.walls.filter(w=>w.id!==id);
+    else state.openings=state.openings.filter(w=>w.id!==id);
+    select(null); heatDirty=true; render(); };
+}
+
+// ---- optimise ----
+function optimise(){
+  const bb=roomsBBox();
+  if(!bb){ document.getElementById("optOut").textContent="Draw at least one room so the floor area is known."; return; }
+  const out=document.getElementById("optOut"); out.textContent="Computing…";
+  setTimeout(()=>{
+    const n=state.numNodes, step=0.6, cs=0.7, cand=[], cells=[];
+    for(let x=bb.x+0.3;x<bb.X;x+=step) for(let y=bb.y+0.3;y<bb.Y;y+=step) if(insideInterior(x,y)) cand.push({x,y});
+    for(let x=bb.x+0.25;x<bb.X;x+=cs) for(let y=bb.y+0.25;y<bb.Y;y+=cs) if(insideInterior(x,y)) cells.push({x,y});
+    if(!cand.length){ out.textContent="No interior area found."; return; }
+    const covTh=state.band==="24"?-72:-70, ded=MODELS[state.model].backhaul, bhTh=ded?-78:-72, chosen=[];
+    if(state.router){ let bc=cand[0],bd=1e9; for(const c of cand){ const d=Math.hypot(c.x-state.router.x,c.y-state.router.y); if(d<bd){bd=d;bc=c;} } chosen.push(bc); }
+    while(chosen.length<n){
+      let best=null,bestScore=-1;
+      for(const c of cand){
+        if(chosen.some(o=>Math.hypot(o.x-c.x,o.y-c.y)<1.2)) continue;
+        if(chosen.length){ const bh=Math.max(...chosen.map(o=>rssiFrom(c.x,c.y,o,MODELS[state.model].bands.includes("5")?"5":state.band))); if(bh<bhTh) continue; }
+        let cov=0;
+        for(const cell of cells){ let b=-999; for(const o of chosen){ const r=rssiFrom(cell.x,cell.y,o,state.band); if(r>b)b=r; } const r2=rssiFrom(cell.x,cell.y,c,state.band); if(r2>b)b=r2; if(b>=covTh)cov++; }
+        if(cov>bestScore){bestScore=cov;best=c;}
+      }
+      if(!best)break; chosen.push(best);
+    }
+    state.suggestions=chosen;
+    let ok=0; for(const cell of cells){ let b=-999; for(const o of chosen){const r=rssiFrom(cell.x,cell.y,o,state.band); if(r>b)b=r;} if(b>=covTh)ok++; }
+    const pct=Math.round(100*ok/cells.length); let bhMsg="";
+    if(chosen.length>1){ let weakest=999; const bband=MODELS[state.model].bands.includes("5")?"5":state.band;
+      for(let i=1;i<chosen.length;i++){ const link=Math.max(...chosen.slice(0,i).map(o=>rssiFrom(chosen[i].x,chosen[i].y,o,bband))); weakest=Math.min(weakest,link); }
+      const q=weakest>=-60?"strong":weakest>=-67?"good":weakest>=-72?"usable":"weak";
+      bhMsg=` · weakest backhaul ${Math.round(weakest)} dBm (${q})${ded?", dedicated radio":""}`; }
+    out.innerHTML=`Suggested ${chosen.length} nodes → <b style="color:var(--ink)">${pct}%</b> coverage on ${BAND_LABEL[state.band]}${bhMsg}.`;
+    document.getElementById("applyBtn").style.display="block"; document.getElementById("clearSug").style.display="block"; render();
+  },30);
+}
+
+// ---- UI ----
+function buildBandSwitch(){
+  const el=document.getElementById("bandSwitch"), bands=MODELS[state.model].bands;
+  if(!bands.includes(state.band)) state.band=bands[0];
+  el.innerHTML=bands.map(b=>`<button data-band="${b}" class="${b===state.band?"on":""}">${BAND_LABEL[b]}</button>`).join("");
+}
+function buildModelSel(){
+  const s=document.getElementById("modelSel");
+  s.innerHTML=Object.entries(MODELS).map(([k,m])=>`<option value="${k}" ${k===state.model?"selected":""}>${m.name} · ${m.cls}</option>`).join("");
+  updateModelMeta();
+}
+function updateModelMeta(){
+  const m=MODELS[state.model];
+  const bandStr=m.bands.map(b=>`${BAND_LABEL[b]} ${Math.round(eirpOf(b))}dBm`).join(" · ");
+  document.getElementById("modelMeta").textContent=`${m.gen} · ${bandStr}${m.backhaul?" · dedicated backhaul":""}`;
+  document.getElementById("brandSub").textContent="· "+m.name;
+}
+function buildMatGrid(){
+  const g=document.getElementById("matGrid"); g.innerHTML="";
+  const list=state.tool==="opening"?OPENING_MATS:WALL_MATS, cur=state.tool==="opening"?state.openMat:state.mat;
+  document.querySelector("#matSec h2").textContent=state.tool==="opening"?"Opening type":"Wall material";
+  for(const k of list){ const m=MATERIALS[k], d=document.createElement("div"); d.className="mat"+(k===cur?" on":"");
+    d.innerHTML=`<span class="sw" style="background:${m.col}"></span><span class="nm">${m.name}</span><span class="db">${m.l24}/${m.l5}/${m.l6}</span>`;
+    d.onclick=()=>{ if(state.tool==="opening")state.openMat=k; else state.mat=k; buildMatGrid(); }; g.appendChild(d); }
+}
+function buildLegend(){ const L=document.getElementById("legend"); L.innerHTML="";
+  QUALITY.forEach(q=>{ const r=document.createElement("div"); r.className="legrow";
+    r.innerHTML=`<span class="sw" style="background:rgb(${q.c.join(",")})"></span><span class="lab">${q.lab} <span style="color:var(--ink-faint)">· ${q.note}</span></span><span class="rng">${q.rng}</span>`; L.appendChild(r); }); }
+function setHint(t){ document.getElementById("hint").textContent=t; }
+function setTool(t){
+  state.tool=t; document.querySelectorAll(".tool").forEach(b=>b.classList.toggle("on",b.dataset.tool===t)); buildMatGrid();
+  const hints={select:"Drag a Deco to reposition. Drag empty space to pan. Tap objects to edit.",
+    room:"Drag to draw a room — corners snap to grid and to nearby rooms.",
+    wall:"Drag to draw a wall segment with the selected material.",
+    opening:"Tap an existing wall to punch a door or window through it.",
+    ap:"Tap to drop a Deco node.",router:"Tap to place your router/ONT. Node 1 pins nearest it.",erase:"Tap any object to delete it."};
+  setHint(hints[t]||""); document.getElementById("matSec").style.display=(t==="room"||t==="wall"||t==="opening")?"block":"none";
+}
+
+document.getElementById("rail").addEventListener("click",e=>{ const b=e.target.closest(".tool"); if(b) setTool(b.dataset.tool); });
+document.getElementById("bandSwitch").addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
+  state.band=b.dataset.band; buildBandSwitch(); heatDirty=true; render(); });
+document.getElementById("modelSel").onchange=e=>{ state.model=e.target.value; buildBandSwitch(); updateModelMeta(); heatDirty=true; render(); };
+document.getElementById("opac").oninput=e=>{ state.opacity=e.target.value/100; render(); };
+document.getElementById("showGrid").onchange=e=>{ state.showGrid=e.target.checked; render(); };
+document.getElementById("smooth").onchange=e=>{ state.smooth=e.target.checked; render(); };
+document.getElementById("snapChk").onchange=e=>{ state.snap=e.target.checked; };
+document.getElementById("numNodes").onchange=e=>{ state.numNodes=+e.target.value; };
+document.getElementById("optBtn").onclick=optimise;
+document.getElementById("applyBtn").onclick=()=>{ if(!state.suggestions)return; pushUndo();
+  state.aps=state.suggestions.map((s,i)=>({id:nid(),x:s.x,y:s.y,name:"Deco "+(i+1)})); state.suggestions=null;
+  document.getElementById("applyBtn").style.display="none"; document.getElementById("clearSug").style.display="none"; heatDirty=true; render(); };
+document.getElementById("clearSug").onclick=()=>{ state.suggestions=null; document.getElementById("applyBtn").style.display="none"; document.getElementById("clearSug").style.display="none"; render(); };
+document.getElementById("undoBtn").onclick=undo; document.getElementById("redoBtn").onclick=redo;
+document.getElementById("zin").onclick=()=>zoomC(1.2); document.getElementById("zout").onclick=()=>zoomC(1/1.2);
+document.getElementById("zfit").onclick=()=>{ fitView(); render(); };
+function zoomC(f){ const cx=W/2,cy=H/2,wp=s2w(cx,cy); state.view.scale=Math.max(12,Math.min(300,state.view.scale*f)); state.view.ox=cx-wp.x*state.view.scale; state.view.oy=cy-wp.y*state.view.scale; render(); }
+document.getElementById("mobToggle").onclick=()=>document.getElementById("inspector").classList.toggle("open");
+
+window.addEventListener("keydown",e=>{
+  const mod=e.metaKey||e.ctrlKey;
+  if(mod&&e.key.toLowerCase()==="z"){ e.preventDefault(); if(e.shiftKey)redo(); else undo(); return; }
+  if(mod&&e.key.toLowerCase()==="y"){ e.preventDefault(); redo(); return; }
+  if(mod&&e.key.toLowerCase()==="c"){ copySel(); return; }
+  if(mod&&e.key.toLowerCase()==="v"){ e.preventDefault(); pasteClip(); return; }
+  if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
+  const map={v:"select",r:"room",w:"wall",d:"opening",a:"ap",g:"router",e:"erase"};
+  if(map[e.key]) setTool(map[e.key]);
+  if((e.key==="Delete"||e.key==="Backspace")&&state.sel){ const b=document.getElementById("delSel"); if(b)b.click(); }
+});
+
+// export / import
+document.getElementById("exportBtn").onclick=()=>{ const data={version:2,model:state.model,rooms:state.rooms,walls:state.walls,openings:state.openings,aps:state.aps,router:state.router};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}), a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="wifi-plan.json"; a.click(); URL.revokeObjectURL(a.href); };
+document.getElementById("importBtn").onclick=()=>document.getElementById("fileIn").click();
+document.getElementById("fileIn").onchange=e=>{ const f=e.target.files[0]; if(!f)return; const rd=new FileReader();
+  rd.onload=()=>{ try{ const d=JSON.parse(rd.result); pushUndo();
+    state.rooms=d.rooms||[];state.walls=d.walls||[];state.openings=d.openings||[];state.aps=d.aps||[];state.router=d.router||null;
+    if(d.model&&MODELS[d.model]){ state.model=d.model; buildModelSel(); buildBandSwitch(); updateModelMeta(); }
+    state.suggestions=null; uid=Math.max(1,...state.rooms.map(r=>r.id||0),...state.walls.map(w=>w.id||0),...state.openings.map(w=>w.id||0),...state.aps.map(a=>a.id||0))+1;
+    select(null); heatDirty=true; fitView(); render();
+  }catch(err){ alert("Could not read that file — is it a plan export?"); } };
+  rd.readAsText(f); e.target.value=""; };
+document.getElementById("clearAll").onclick=()=>{ if(!confirm("Clear the whole plan?"))return; pushUndo();
+  state.rooms=[];state.walls=[];state.openings=[];state.aps=[];state.router=null;state.suggestions=null; select(null); heatDirty=true; render(); };
+
+// presets
+document.getElementById("preset").onchange=e=>{ if(e.target.value){ loadPreset(e.target.value); e.target.value=""; } };
+function addRoom(x,y,w,h,name,mat){ const rid=nid(); state.rooms.push({id:rid,x,y,w,h,name});
+  const push=(x1,y1,x2,y2)=>state.walls.push({id:nid(),x1,y1,x2,y2,mat,roomId:rid});
+  push(x,y,x+w,y);push(x+w,y,x+w,y+h);push(x+w,y+h,x,y+h);push(x,y+h,x,y); }
+function loadPreset(kind){ pushUndo();
+  state.rooms=[];state.walls=[];state.openings=[];state.aps=[];state.router=null;state.suggestions=null;
+  if(kind==="semi"){ addRoom(1,1,4.5,3.5,"Lounge","cavity");addRoom(5.5,1,3.5,3.5,"Kitchen","cavity");addRoom(1,4.5,3,3,"Hall","stud");addRoom(4,4.5,2.6,3,"Utility","stud");addRoom(6.6,4.5,2.4,3,"WC","foil");state.router={x:8.6,y:1.4};
+  } else if(kind==="terrace"){ addRoom(1,1,4,4,"Front room","brick9");addRoom(1,5,4,3.5,"Back room","brick9");addRoom(5,1,2.6,7.5,"Hall + stairs","brick9");addRoom(7.6,5,3.2,3.5,"Kitchen","brick9");state.router={x:1.4,y:1.4};
+  } else if(kind==="stone"){ addRoom(1,1,5,4,"Living room","stone");addRoom(6,1,3.5,4,"Kitchen","stone");addRoom(1,5,3.5,3.5,"Bedroom","stone");addRoom(4.5,5,2.5,3.5,"Hall","block");addRoom(7,5,2.5,3.5,"Bathroom","stone");state.router={x:1.4,y:1.4};
+  } else if(kind==="bungalow"){ addRoom(1,1,8,4.5,"Open-plan living / kitchen","cavity");addRoom(9,1,3.5,2.2,"Bed 1","stud");addRoom(9,3.3,3.5,2.2,"Bed 2","stud");addRoom(1,5.5,4,3,"Bed 3","stud");addRoom(5,5.5,4,3,"Bathroom + hall","block");state.router={x:1.4,y:1.4}; }
+  select(null); heatDirty=true; fitView(); render();
+}
+
+// init
+buildModelSel(); buildBandSwitch(); buildMatGrid(); buildLegend(); setTool("select"); updateUndoBtns();
+requestAnimationFrame(()=>{ resize(); });
+</script>
+</body>
+</html>
